@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meet Coach</title>
+
+<style>
+body { font-family: Arial; margin: 10px; }
+h2 { margin: 5px 0; }
+button { padding: 6px 8px; margin: 2px; font-size: 13px; }
+input { width: 60px; text-align:center; font-size: 14px; }
+.lifter { border-bottom: 1px solid #ccc; padding: 4px 0; font-size: 14px; }
+.compact { display:flex; justify-content:space-between; align-items:center; }
+.good { background: #4CAF50; color: white; }
+.miss { background: #d9534f; color: white; }
+.clear { background: #999; color: white; }
+.adjust { background: #eee; }
+.section { margin-top:10px; padding:5px; border:1px solid #ddd; }
+.small { font-size:12px; color:#555; }
+strong { font-size:16px; }
+.row { display:flex; align-items:center; flex-wrap:wrap; }
+</style>
+</head>
+<body>
+
+<div id="dashboard">
+<h2>Team Dashboard</h2>
+<div id="lifters"></div>
+<br>
+<button onclick="addLifter()">+ Add Lifter</button>
+</div>
+
+<div id="lifterView" style="display:none;">
+<button onclick="goBack()">Back</button>
+<h2 id="lifterName"></h2>
+<div id="lifts"></div>
+<h3>Summary</h3>
+<div id="summary"></div>
+</div>
+
+<script>
+
+let lifters = JSON.parse(localStorage.getItem("meetData") || "[]");
+let currentIndex = null;
+
+function save() {
+  localStorage.setItem("meetData", JSON.stringify(lifters));
+}
+
+function addLifter() {
+  let name = prompt("Lifter Name:");
+  if (!name) return;
+  let wc = prompt("Weight Class:");
+  lifters.push({
+    name,
+    wc,
+    lifts: {
+      squat: makeLift(),
+      bench: makeLift(),
+      deadlift: makeLift()
+    }
+  });
+  save();
+  renderDashboard();
+}
+
+function makeLift() {
+  return [
+    {weight:0,result:null},
+    {weight:0,result:null},
+    {weight:0,result:null}
+  ];
+}
+
+function renderDashboard() {
+  let container = document.getElementById("lifters");
+  container.innerHTML = "";
+  lifters.forEach((l,i)=>{
+    let totals = calculateTotals(l);
+    container.innerHTML += `
+      <div class="lifter compact" onclick="openLifter(${i})">
+        <div>${l.name} (${l.wc})</div>
+        <div>${totals.running} | ${totals.predicted}</div>
+      </div>
+    `;
+  });
+}
+
+function openLifter(i) {
+  currentIndex = i;
+  document.getElementById("dashboard").style.display="none";
+  document.getElementById("lifterView").style.display="block";
+  document.getElementById("lifterName").innerText =
+    lifters[i].name + " (" + lifters[i].wc + ")";
+  renderLifts();
+}
+
+function goBack() {
+  currentIndex = null;
+  document.getElementById("dashboard").style.display="block";
+  document.getElementById("lifterView").style.display="none";
+  renderDashboard();
+}
+
+function renderLifts() {
+  let l = lifters[currentIndex];
+  let container = document.getElementById("lifts");
+  container.innerHTML="";
+  ["squat","bench","deadlift"].forEach(lift=>{
+    container.innerHTML += `<div class="section"><h3>${lift.toUpperCase()}</h3>`;
+    l.lifts[lift].forEach((a,idx)=>{
+      container.innerHTML += `
+        <div class="row">
+        Attempt ${idx+1}:
+        <button class="adjust" onclick="adjustWeight('${lift}',${idx},-5)">-5</button>
+        <input type="number" value="${a.weight}"
+          onchange="manualWeight('${lift}',${idx},this.value)">
+        <button class="adjust" onclick="adjustWeight('${lift}',${idx},5)">+5</button>
+
+        <button class="${a.result==='good'?'good':''}"
+          onclick="setResult('${lift}',${idx},'good')">GOOD</button>
+        <button class="${a.result==='miss'?'miss':''}"
+          onclick="setResult('${lift}',${idx},'miss')">MISS</button>
+        <button class="clear"
+          onclick="clearResult('${lift}',${idx})">CLEAR</button>
+        </div>
+      `;
+    });
+    container.innerHTML += `
+      <div class="small">
+        Best: ${bestLift(l,lift)}
+      </div></div>`;
+  });
+  renderSummary();
+}
+
+function adjustWeight(lift,idx,change) {
+  let attempts = lifters[currentIndex].lifts[lift];
+  let newVal = (attempts[idx].weight || 0) + change;
+
+  if (newVal < 0) newVal = 0;
+  if (idx>0 && newVal < attempts[idx-1].weight) {
+    alert("Cannot decrease below previous attempt.");
+    return;
+  }
+
+  attempts[idx].weight = newVal;
+  save();
+  renderLifts();
+}
+
+function manualWeight(lift,idx,val) {
+  val = parseInt(val)||0;
+
+  if (val % 5 !== 0) {
+    alert("Must be multiple of 5.");
+    renderLifts();
+    return;
+  }
+
+  let attempts = lifters[currentIndex].lifts[lift];
+  if (idx>0 && val < attempts[idx-1].weight) {
+    alert("Cannot decrease below previous attempt.");
+    renderLifts();
+    return;
+  }
+
+  attempts[idx].weight = val;
+  save();
+  renderLifts();
+}
+
+function setResult(lift,idx,res) {
+  lifters[currentIndex].lifts[lift][idx].result = res;
+  save();
+  renderLifts();
+}
+
+function clearResult(lift,idx) {
+  lifters[currentIndex].lifts[lift][idx].result = null;
+  save();
+  renderLifts();
+}
+
+function bestLift(l,lift) {
+  let best=0;
+  l.lifts[lift].forEach(a=>{
+    if (a.result==='good' && a.weight>best)
+      best=a.weight;
+  });
+  return best;
+}
+
+function predictedLift(l,lift) {
+  let attempts = l.lifts[lift];
+  let unresolved = attempts.some(a=>a.result===null);
+  if (unresolved) {
+    let max=0;
+    attempts.forEach(a=>{
+      if (a.weight>max) max=a.weight;
+    });
+    return max;
+  } else {
+    return bestLift(l,lift);
+  }
+}
+
+function calculateTotals(l) {
+  let running =
+    bestLift(l,"squat")+
+    bestLift(l,"bench")+
+    bestLift(l,"deadlift");
+
+  let predicted =
+    predictedLift(l,"squat")+
+    predictedLift(l,"bench")+
+    predictedLift(l,"deadlift");
+
+  return {running,predicted};
+}
+
+function renderSummary() {
+  let l = lifters[currentIndex];
+  let totals = calculateTotals(l);
+  document.getElementById("summary").innerHTML = `
+    Best Squat: ${bestLift(l,"squat")}<br>
+    Best Bench: ${bestLift(l,"bench")}<br>
+    Best Deadlift: ${bestLift(l,"deadlift")}<br><br>
+    <strong>Running Total: ${totals.running}</strong><br>
+    <strong>Predicted Total: ${totals.predicted}</strong>
+  `;
+}
+
+renderDashboard();
+
+</script>
+</body>
+</html>
