@@ -167,11 +167,7 @@ row=`${l.name}   BOMB OUT`;
 
 }else{
 
-row=`${l.name}   ${attempt.label} ${attempt.weight}`;
-
-if(attempt.open)row+=" ?";
-
-row+=`   ${totals.running} | ${totals.predicted}`;
+row=`${l.name} (${l.wc})   ${totals.running} | ${totals.predicted} [${attempt.label}]`;
 
 }
 
