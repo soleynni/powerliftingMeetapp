@@ -47,6 +47,7 @@ padding:5px;
 <button onclick="finishMeet()">Finish Meet</button>
 <button onclick="reopenMeet()">Reopen Meet</button>
 <button onclick="exportCSV()">Export Results</button>
+<button onclick="startNewMeet()">Start New Meet</button>
 
 </div>
 
@@ -473,6 +474,20 @@ alert("Meet reopened");
 
 }
 
+
+function startNewMeet(){
+
+if(!confirm("Start a new meet?\n\nThis will erase all lifters. Make sure you exported results first.")){
+return;
+}
+
+lifters = [];
+meetFinished = false;
+
+save();
+renderDashboard();
+
+}
 
 function exportCSV(){
 
