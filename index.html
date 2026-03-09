@@ -44,10 +44,13 @@ padding:5px;
 <br>
 
 <button onclick="addLifter()">Add Lifter</button>
+<button onclick="document.getElementById('csvFile').click()">Import Lifters</button>
 <button onclick="finishMeet()">Finish Meet</button>
 <button onclick="reopenMeet()">Reopen Meet</button>
 <button onclick="exportCSV()">Export Results</button>
 <button onclick="startNewMeet()">Start New Meet</button>
+
+<input type="file" id="csvFile" accept=".csv" style="display:none" onchange="importCSV(event)">
 
 </div>
 
@@ -531,6 +534,58 @@ a.click();
 
 }
 
+function importCSV(event){
+
+const file = event.target.files[0];
+if(!file) return;
+
+const reader = new FileReader();
+
+reader.onload = function(e){
+
+const text = e.target.result;
+const lines = text.trim().split("\n");
+
+for(let i=1;i<lines.length;i++){
+
+let [name,wc,sq1,bn1,dl1] = lines[i].split(",");
+
+sq1 = parseInt(sq1) || 0;
+bn1 = parseInt(bn1) || 0;
+dl1 = parseInt(dl1) || 0;
+
+lifters.push({
+name:name,
+wc:wc,
+lifts:{
+squat:[
+{weight:sq1,result:null},
+{weight:0,result:null},
+{weight:0,result:null}
+],
+bench:[
+{weight:bn1,result:null},
+{weight:0,result:null},
+{weight:0,result:null}
+],
+deadlift:[
+{weight:dl1,result:null},
+{weight:0,result:null},
+{weight:0,result:null}
+]
+}
+});
+
+}
+
+save();
+renderDashboard();
+
+};
+
+reader.readAsText(file);
+
+}
 
 renderDashboard();
 
